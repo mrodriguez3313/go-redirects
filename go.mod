@@ -1,4 +1,4 @@
-module github.com/tj/go-redirects
+module github.com/fission-suite/go-redirects
 
 go 1.17
 
