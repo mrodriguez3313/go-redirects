@@ -113,9 +113,22 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 		// src and dst
 		rule := Rule{
 			From:   fields[0],
-			To:     fields[1],
 			Status: 301,
 		}
+		// grab "from" endpoint; done above
+		// for each token
+		// 	check, if token has an "="
+		// 		if yes 
+		// 			then split and add to Params map
+		//   	if no
+		// 		grab "to" endpoint
+
+		for _, token := range fields {
+			if strings.ContainsAny(token,"=") {
+				fmt.Println("here goes")
+			} else { rule.To = "Its bad"}
+		}
+		
 
 		// status
 		if len(fields) > 2 {
@@ -170,4 +183,9 @@ func parseStatus(s string) (code int, force bool, err error) {
 
 	code, err = strconv.Atoi(s)
 	return
+}
+
+// parseCountry returns a slice of countries
+func parseCountry(s string) []string {
+	return strings.Split(s, ",")[1:] //split comma separated list into slice
 }

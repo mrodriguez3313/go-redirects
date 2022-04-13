@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/tj/go-redirects"
+	"github.com/fission-suite/go-redirects"
 )
 
 func Example() {

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/tj/assert"
-	"github.com/tj/go-redirects"
+	"github.com/fission-suite/go-redirects"
 )
 
 func TestParams_Has(t *testing.T) {
