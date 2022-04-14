@@ -15,7 +15,7 @@ import (
 // Params is a map of key/value pairs.
 type Params map[string]interface{}
 
-const format = "from [a=:save1 b=value] to [code][!]"
+const format = "`from [a=:save1 b=value] to [code][!] [Country=x,y,z] [Language=x,y,z]`"
 
 // Has returns true if the param is present.
 func (p *Params) Has(key string) bool {
@@ -150,18 +150,30 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 			rule.To = fields[i]
 		}
 
+		fmt.Println("tokens: ", i, fields)
 		// if there is no status code. then check for anything after
 		if i+1 < len(fields) {
 			i += 1
+			options := fields[i:]
 			if strings.ContainsAny(fields[i], "=") {
 				// imply that status code is 301
 				// grab the country and or language
 
-				// if there were any paramters, add them to the rules
-				if len(parameters) != 0 {
-					rule.Params = parseParams(parameters)
+				parameters = nil
+				fmt.Println("options: ", options)
+				for _, token := range options {
+					// if we find something other than a key/pair past the `status code` place, error out
+					if !strings.ContainsAny(token, "=") {
+						return nil, fmt.Errorf("got: %s, was expecting format %s", token, format)
+					}
+					// if there are any paramters, add them to the rules
+					k, v := parseOptions(token)
+					if k == "Country" {
+						rule.Country = v
+					} else if k == "Language" {
+						rule.Language = v
+					}
 				}
-				// return nil, fmt.Errorf("got: %s, was expecting format %s", options[0], format)
 			}
 
 			if code, err := strconv.Atoi(fields[i]); err != nil {
@@ -175,6 +187,20 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 				rule.Force = force
 			} else {
 				rule.Status = code
+			}
+
+			for _, token := range options[1:] {
+				// if we find something other than a key/pair past the `status code` place, error out
+				if !strings.ContainsAny(token, "=") {
+					return nil, fmt.Errorf("got: %s, was expecting format %s", token, format)
+				}
+				// if there are any paramters, add them to the rules
+				k, v := parseOptions(token)
+				if k == "Country" {
+					rule.Country = v
+				} else if k == "Language" {
+					rule.Language = v
+				}
 			}
 		}
 		rules = append(rules, rule)
@@ -202,6 +228,16 @@ func parseParams(pairs []string) Params {
 	}
 
 	return m
+}
+
+// parseParams returns parsed key/value pairs.
+func parseOptions(options string) (string, []string) {
+	parts := strings.Split(options, "=")
+	if len(parts) > 1 {
+		return parts[0], strings.Split(parts[1], ",")
+	} else {
+		return parts[0], []string{}
+	}
 }
 
 // parseStatus returns the status code and force when "!" suffix is present.

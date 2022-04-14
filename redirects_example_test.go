@@ -41,8 +41,9 @@ func Example() {
 		#/	/something	302	foo=bar
 		#/	/something	302	foo=bar bar=baz
 		#/	id=:id /blog/:id 302
-		/articles id=:id tag=:tag /posts/:tag/:id 301!
-		#/ 	/auzy		302 Country=au,nz
+		#/articles id=:id tag=:tag /posts/:tag/:id 301!
+		#/ 	/auzy 302 Country=au,nz
+		/israel/*  /israel/he/:splat  302  Country=au,nz Language=he
   `))
 
 	enc := json.NewEncoder(os.Stdout)
