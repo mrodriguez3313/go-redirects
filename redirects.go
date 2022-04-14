@@ -160,7 +160,6 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 				// grab the country and or language
 
 				parameters = nil
-				fmt.Println("options: ", options)
 				for _, token := range options {
 					// if we find something other than a key/pair past the `status code` place, error out
 					if !strings.ContainsAny(token, "=") {
