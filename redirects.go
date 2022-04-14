@@ -15,6 +15,8 @@ import (
 // Params is a map of key/value pairs.
 type Params map[string]interface{}
 
+const format = "from [a=:save1 b=value] to [code][!]"
+
 // Has returns true if the param is present.
 func (p *Params) Has(key string) bool {
 	if p == nil {
@@ -59,6 +61,14 @@ type Rule struct {
 
 	// Params is an optional arbitrary map of key/value pairs.
 	Params Params
+
+	// Country is an optional arbitrary list of redirect options based on country ISO 3166-1 alpha-2 code
+	// source: https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2#Officially_assigned_code_elements
+	Country []string
+
+	// Language is an optional arbitrary list of redirect options based on lanugage ISO 639-1 codes
+	// source: https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
+	Language []string
 }
 
 // IsRewrite returns true if the rule represents a rewrite (status 200).
@@ -115,40 +125,60 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 			From:   fields[0],
 			Status: 301,
 		}
-		// grab "from" endpoint; done above
-		// for each token
-		// 	check, if token has an "="
-		// 		if yes 
-		// 			then split and add to Params map
-		//   	if no
-		// 		grab "to" endpoint
 
-		for _, token := range fields {
-			if strings.ContainsAny(token,"=") {
-				fmt.Println("here goes")
-			} else { rule.To = "Its bad"}
+		// This will continue until all parameters have been grabbed
+		var parameters []string
+		var i int
+		for i = 1; strings.ContainsAny(fields[i], "="); i++ {
+			parameters = append(parameters, fields[i])
 		}
-		
 
-		// status
-		if len(fields) > 2 {
-			code, force, err := parseStatus(fields[2])
-			if err != nil {
-				return nil, errors.Wrapf(err, "parsing status %q", fields[2])
+		// if there were any paramters, add them to the rules
+		if len(parameters) != 0 {
+			rule.Params = parseParams(parameters)
+		}
+
+		// if status code or parameters are in `to` place. error out.
+		// else get `to` field
+		if _, err := strconv.Atoi(fields[i]); err != nil {
+			if strings.HasSuffix(fields[i], "!") {
+				return nil, fmt.Errorf("got: %s, was expecting format %s", fields[i], format)
+			}
+			if strings.ContainsAny(fields[i], "=") {
+				return nil, fmt.Errorf("got: %s, was expecting format %s", fields[i], format)
+			}
+			rule.To = fields[i]
+		}
+
+		// if there is no status code. then check for anything after
+		if i+1 < len(fields) {
+			i += 1
+			if strings.ContainsAny(fields[i], "=") {
+				// imply that status code is 301
+				// grab the country and or language
+
+				// if there were any paramters, add them to the rules
+				if len(parameters) != 0 {
+					rule.Params = parseParams(parameters)
+				}
+				// return nil, fmt.Errorf("got: %s, was expecting format %s", options[0], format)
 			}
 
-			rule.Status = code
-			rule.Force = force
+			if code, err := strconv.Atoi(fields[i]); err != nil {
+				// not a number, or could be [status code][!]
+				code, force, err := parseStatus(fields[i])
+				if err != nil {
+					return nil, errors.Wrapf(err, "got: %s, was expecting format %s", fields[i], format)
+				}
+				// it did have a '!', therefore is the status code
+				rule.Status = code
+				rule.Force = force
+			} else {
+				rule.Status = code
+			}
 		}
-
-		// params
-		if len(fields) > 3 {
-			rule.Params = parseParams(fields[3:])
-		}
-
 		rules = append(rules, rule)
 	}
-
 	err = s.Err()
 	return
 }
