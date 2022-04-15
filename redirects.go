@@ -150,7 +150,6 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 			rule.To = fields[i]
 		}
 
-		fmt.Println("tokens: ", i, fields)
 		// if there is no status code. then check for anything after
 		if i+1 < len(fields) {
 			i += 1
@@ -250,7 +249,17 @@ func parseStatus(s string) (code int, force bool, err error) {
 	return
 }
 
-// parseCountry returns a slice of countries
-func parseCountry(s string) []string {
-	return strings.Split(s, ",")[1:] //split comma separated list into slice
-}
+// func isOptions()
+// for _, token := range options[1:] {
+// 	// if we find something other than a key/pair past the `status code` place, error out
+// 	if !strings.ContainsAny(token, "=") {
+// 		return nil, fmt.Errorf("got: %s, was expecting format %s", token, format)
+// 	}
+// 	// if there are any paramters, add them to the rules
+// 	k, v := parseOptions(token)
+// 	if k == "Country" {
+// 		rule.Country = v
+// 	} else if k == "Language" {
+// 		rule.Language = v
+// 	}
+// }
