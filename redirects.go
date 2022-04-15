@@ -156,23 +156,27 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 			// if in the `status code` place there is a key/pair
 			if strings.ContainsAny(options[0], "=") {
 				// imply that status code is 301
-				// parse for country and or language options
-				rule.Country, rule.Language, err = checkOptions(options)
+				// parse for country and/or language options
+				rule.Country, rule.Language, err = parseOptions(options)
+				if err != nil {
+					return nil, errors.Wrapf(err, "got: %s, was expecting format %s from %s", options[0], format, options)
+				}
 			}
 			// check for status code
 			if code, err := strconv.Atoi(options[0]); err != nil {
 				// not a number, or could be [status code][!]
-				code, force, err := parseStatus(options[0])
+				rule.Status, rule.Force, err = parseStatus(options[0])
 				if err != nil {
 					return nil, errors.Wrapf(err, "got: %s, was expecting format %s from %s", options[0], format, options)
 				}
-				// it did have a '!', therefore is the status code
-				rule.Status = code
-				rule.Force = force
 			} else {
 				rule.Status = code
 			}
-			rule.Country, rule.Language, err = checkOptions(options[1:])
+
+			rule.Country, rule.Language, err = parseOptions(options[1:])
+			if err != nil {
+				return nil, errors.Wrapf(err, "got: %s, was expecting format %s from %s", options[0], format, options)
+			}
 		}
 		rules = append(rules, rule)
 	}
@@ -212,15 +216,15 @@ func parseStatus(s string) (code int, force bool, err error) {
 	return
 }
 
-// parseOptions parses
-func checkOptions(options []string) (Country []string, Language []string, err error) {
-	// parse for country and or language options
+// parseOptions extracts optional Country and Language fields.
+func parseOptions(options []string) (Country []string, Language []string, err error) {
+	// parse for country and or language options, skips if empty
 	for _, token := range options {
 		// if we find something other than a key/pair past the `status code` place, error out
 		if !strings.ContainsAny(token, "=") {
 			err = fmt.Errorf("got: %s, was expecting format %s", token, format)
 		}
-		k, v := parseOptions(token)
+		k, v := splitOptions(token)
 		if k == "Country" {
 			Country = v
 		} else if k == "Language" {
@@ -233,7 +237,7 @@ func checkOptions(options []string) (Country []string, Language []string, err er
 }
 
 // parseParams returns parsed key/value pairs.
-func parseOptions(options string) (string, []string) {
+func splitOptions(options string) (string, []string) {
 	parts := strings.Split(options, "=")
 	if len(parts) > 1 {
 		return parts[0], strings.Split(parts[1], ",")
