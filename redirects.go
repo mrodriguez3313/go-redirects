@@ -8,8 +8,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // Params is a map of key/value pairs.
@@ -87,12 +85,12 @@ func (r *Rule) IsProxy() bool {
 }
 
 // Must parse utility.
-func Must(v []Rule, err error) []Rule {
+func Must(v []Rule, err error) ([]Rule, error) {
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return v
+	return v, nil
 }
 
 // Parse the given reader.
@@ -159,7 +157,7 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 				// parse for country and/or language options
 				rule.Country, rule.Language, err = parseOptions(options)
 				if err != nil {
-					return nil, errors.Wrapf(err, "got: %s, was expecting format %s from %s", options[0], format, options)
+					return nil, fmt.Errorf("got: %s, was expecting format %s from %s", options[0], format, options)
 				}
 			}
 			// check for status code
@@ -167,7 +165,7 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 				// not a number, or could be [status code][!]
 				rule.Status, rule.Force, err = parseStatus(options[0])
 				if err != nil {
-					return nil, errors.Wrapf(err, "got: %s, was expecting format %s from %s", options[0], format, options)
+					return nil, fmt.Errorf("got: %s, was expecting format %s from %s", options[0], format, options)
 				}
 			} else {
 				rule.Status = code
@@ -175,7 +173,7 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 
 			rule.Country, rule.Language, err = parseOptions(options[1:])
 			if err != nil {
-				return nil, errors.Wrapf(err, "got: %s, was expecting format %s from %s", options[0], format, options)
+				return nil, fmt.Errorf("got: %s, was expecting format %s from %s", options[0], format, options)
 			}
 		}
 		rules = append(rules, rule)
