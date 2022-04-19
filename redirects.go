@@ -151,29 +151,20 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 		options := fields[i+1:]
 		// if there is anything after `to` field
 		if len(options) > 0 {
-			// if in the `status code` place there is a key/pair
-			if strings.ContainsAny(options[0], "=") {
-				// imply that status code is 301
-				// parse for country and/or language options
-				rule.Country, rule.Language, err = parseOptions(options)
-				if err != nil {
-					return nil, fmt.Errorf("got: %s, was expecting format %s from %s", options[0], format, options)
-				}
-			}
 			// check for status code
-			if code, err := strconv.Atoi(options[0]); err != nil {
-				// not a number, or could be [status code][!]
-				rule.Status, rule.Force, err = parseStatus(options[0])
-				if err != nil {
-					return nil, fmt.Errorf("got: %s, was expecting format %s from %s", options[0], format, options)
+			if rule.Status, err = strconv.Atoi(options[0]); err != nil {
+				// not a number, could be [status code][!]
+				if rule.Status, rule.Force, err = parseStatus(options[0]); err != nil {
+					// not [status][!], could be key/pair
+					if !strings.ContainsAny(options[0], "=") {
+						return nil, fmt.Errorf("got: %s, was expecting format %s", options[0], format)
+					}
 				}
-			} else {
-				rule.Status = code
 			}
-
-			rule.Country, rule.Language, err = parseOptions(options[1:])
-			if err != nil {
-				return nil, fmt.Errorf("got: %s, was expecting format %s from %s", options[0], format, options)
+			options = options[1:]
+			// parse for country and/or language options, error out if anything else was found.
+			if rule.Country, rule.Language, err = parseOptions(options); err != nil {
+				return nil, fmt.Errorf("%s", err)
 			}
 		}
 		rules = append(rules, rule)
