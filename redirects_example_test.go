@@ -9,7 +9,7 @@ import (
 
 func Example() {
 	// from [a=:save1 b=value] to [code][!] [Country=x,y,z] [Language=x,y,z]
-	h := redirects.Must(redirects.ParseString(`
+	h, err := redirects.Must(redirects.ParseString(`
 	# Implicit 301 redirects
 	/home              /
 	/blog/my-post.php  /blog/my-post
@@ -37,17 +37,23 @@ func Example() {
 	/app/*  /app/index.html  200!
 
 	## Params
-	/	/something	302	foo=bar
-	/	/something	302	foo=bar bar=baz
 	/	id=:id /blog/:id 302
 	/articles id=:id tag=:tag /posts/:tag/:id 301!
 	/ 	/auzy 302 Country=au,nz
 	/israel/*  /israel/he/:splat  302  Country=au,nz Language=he
-  `))
 
+	## Bad Requests 
+	# should get {}
+	#/	/something	302	foo=bar
+	#/	/something	302	foo=bar bar=baz
+  `))
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	enc.Encode(h)
+	if err != nil {
+		enc.Encode(err)
+	} else {
+		enc.Encode(h)
+	}
 	// Output:
 	// 	[
 	//   {
@@ -145,24 +151,6 @@ func Example() {
 	//     "To": "/app/index.html",
 	//     "Status": 200,
 	//     "Force": true,
-	//     "Params": null,
-	//     "Country": null,
-	//     "Language": null
-	//   },
-	//   {
-	//     "From": "/",
-	//     "To": "/something",
-	//     "Status": 302,
-	//     "Force": false,
-	//     "Params": null,
-	//     "Country": null,
-	//     "Language": null
-	//   },
-	//   {
-	//     "From": "/",
-	//     "To": "/something",
-	//     "Status": 302,
-	//     "Force": false,
 	//     "Params": null,
 	//     "Country": null,
 	//     "Language": null
