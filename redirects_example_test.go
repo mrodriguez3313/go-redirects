@@ -9,51 +9,49 @@ import (
 
 func Example() {
 	// from [a=:save1 b=value] to [code][!] [Country=x,y,z] [Language=x,y,z]
-	h, err := redirects.Must(redirects.ParseString(`
+	h, _ := redirects.Must(redirects.ParseString(`
 	# Implicit 301 redirects
 	/home              /
 	/blog/my-post.php  /blog/my-post
 	/news              /blog
 	/google            https://www.google.com
-	## Redirect with a 301
+	# Redirect with a 301
 	/home         /              301
-#
-	## Redirect with a 302
+
+	# Redirect with a 302
 	/my-redirect  /              302
-#
-	## Rewrite a path
+
+	# Rewrite a path
 	/pass-through /index.html    200
 
-	## Show a custom 404 for this path
+	# Show a custom 404 for this path
 	/ecommerce    /store-closed  404
 
-	## Single page app rewrite
+	# Single page app rewrite
 	/*    /index.html   200
 
-	## Proxying
+	# Proxying
 	/api/*  https://api.example.com/:splat  200
 
-	## Forcing
+	# Forcing
 	/app/*  /app/index.html  200!
 
-	## Params
+	# Params
 	/	id=:id /blog/:id 302
 	/articles id=:id tag=:tag /posts/:tag/:id 301!
+
+	# Country&Language
 	/ 	/auzy 302 Country=au,nz
 	/israel/*  /israel/he/:splat  302  Country=au,nz Language=he
 
-	## Bad Requests 
+	# Bad Requests 
 	# should get {}
 	#/	/something	302	foo=bar
 	#/	/something	302	foo=bar bar=baz
   `))
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	if err != nil {
-		enc.Encode(err)
-	} else {
-		enc.Encode(h)
-	}
+	enc.Encode(h)
 	// Output:
 	// 	[
 	//   {
