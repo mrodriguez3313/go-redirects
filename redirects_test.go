@@ -174,10 +174,11 @@ func TestParams(t *testing.T) {
 
 func TestOptions(t *testing.T) {
 	var actual []redirects.Rule
+	// var err error
 	t.Run("with options", func(t *testing.T) {
 		actual, _ = redirects.ParseString(`
 		# Country&Language
-		/israel/* splat=:splat /israel/he/:splat  302!  Country=au,nz Language=he
+		/israel/* splat=:splat /israel/he/:splat Country=au,nz Language=he
 		`)
 	})
 	params := make(redirects.Params)
@@ -185,8 +186,8 @@ func TestOptions(t *testing.T) {
 
 	expected.From = "/israel/*"
 	expected.To = "/israel/he/:splat"
-	expected.Status = 302
-	expected.Force = true
+	expected.Status = 301
+	expected.Force = false
 	expected.Params = params
 	expected.Country = []string{"au", "nz"}
 	expected.Language = []string{"he"}

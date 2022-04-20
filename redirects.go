@@ -85,12 +85,12 @@ func (r *Rule) IsProxy() bool {
 }
 
 // Must parse utility.
-func Must(v []Rule, err error) ([]Rule, error) {
+func Must(v []Rule, err error) []Rule {
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 
-	return v, nil
+	return v
 }
 
 // Parse the given reader.
@@ -124,9 +124,10 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 			Status: 301,
 		}
 
-		// This will continue until all parameters have been grabbed
 		var parameters []string
 		var i int
+		var implyStatusCode bool
+		// grab all parameters
 		for i = 1; strings.ContainsAny(fields[i], "="); i++ {
 			parameters = append(parameters, fields[i])
 		}
@@ -138,14 +139,18 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 
 		// if status code or parameters are in `to` place. error out.
 		// else get `to` field
-		if _, err := strconv.Atoi(fields[i]); err != nil {
-			if strings.HasSuffix(fields[i], "!") {
-				return nil, fmt.Errorf("got: %s, was expecting format %s", fields[i], format)
+		if i < len(fields) {
+			if _, err := strconv.Atoi(fields[i]); err != nil {
+				if strings.HasSuffix(fields[i], "!") {
+					return nil, fmt.Errorf("Missing `to` field. Got: %s, was expecting format %s", fields[i], format)
+				}
+				if strings.ContainsAny(fields[i], "=") {
+					return nil, fmt.Errorf("Missing `to` field. Got: %s, was expecting format %s", fields[i], format)
+				}
+				rule.To = fields[i]
 			}
-			if strings.ContainsAny(fields[i], "=") {
-				return nil, fmt.Errorf("got: %s, was expecting format %s", fields[i], format)
-			}
-			rule.To = fields[i]
+		} else {
+			return nil, fmt.Errorf("Missing `to` field %s", format)
 		}
 
 		options := fields[i+1:]
@@ -159,9 +164,14 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 					if !strings.ContainsAny(options[0], "=") {
 						return nil, fmt.Errorf("got: %s, was expecting format %s", options[0], format)
 					}
+					rule.Status = 301
+					implyStatusCode = true
 				}
 			}
-			options = options[1:]
+			if !implyStatusCode {
+				options = options[1:]
+			}
+
 			// parse for country and/or language options, error out if anything else was found.
 			if rule.Country, rule.Language, err = parseOptions(options); err != nil {
 				return nil, fmt.Errorf("%s", err)
@@ -209,9 +219,11 @@ func parseStatus(s string) (code int, force bool, err error) {
 func parseOptions(options []string) (Country []string, Language []string, err error) {
 	// parse for country and or language options, skips if empty
 	for _, token := range options {
+		fmt.Println(token)
 		// if we find something other than a key/pair past the `status code` place, error out
 		if !strings.ContainsAny(token, "=") {
 			err = fmt.Errorf("got: %s, was expecting format %s", token, format)
+			break
 		}
 		k, v := splitOptions(token)
 		if k == "Country" {

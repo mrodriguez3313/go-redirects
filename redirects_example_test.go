@@ -9,7 +9,7 @@ import (
 
 func Example() {
 	// from [a=:save1 b=value] to [code][!] [Country=x,y,z] [Language=x,y,z]
-	h, _ := redirects.Must(redirects.ParseString(`
+	h := redirects.Must(redirects.ParseString(`
 	# Implicit 301 redirects
 	/home              /
 	/blog/my-post.php  /blog/my-post
@@ -45,9 +45,11 @@ func Example() {
 	/israel/*  /israel/he/:splat  302  Country=au,nz Language=he
 
 	# Bad Requests 
-	# should get {}
+	# should panic
 	#/	/something	302	foo=bar
 	#/	/something	302	foo=bar bar=baz
+	#/
+	#/  a=:a b=:b 
   `))
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
