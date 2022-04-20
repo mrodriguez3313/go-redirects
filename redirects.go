@@ -127,6 +127,7 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 		var parameters []string
 		var i int
 		var implyStatusCode bool
+
 		// grab all parameters
 		for i = 1; strings.ContainsAny(fields[i], "="); i++ {
 			parameters = append(parameters, fields[i])
@@ -137,31 +138,24 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 			rule.Params = parseParams(parameters)
 		}
 
-		// if status code or parameters are in `to` place. error out.
-		// else get `to` field
-		if i < len(fields) {
-			if _, err := strconv.Atoi(fields[i]); err != nil {
-				if strings.HasSuffix(fields[i], "!") {
-					return nil, fmt.Errorf("Missing `to` field. Got: %s, was expecting format %s", fields[i], format)
-				}
-				if strings.ContainsAny(fields[i], "=") {
-					return nil, fmt.Errorf("Missing `to` field. Got: %s, was expecting format %s", fields[i], format)
-				}
-				rule.To = fields[i]
-			}
-		} else {
+		// if `to` field is empty, else validate `to` path
+		if field := fields[i:]; field == nil {
 			return nil, fmt.Errorf("Missing `to` field %s", format)
+		} else {
+			if rule.To, err = isPath(field[0]); err != nil {
+				return nil, err
+			}
 		}
 
 		options := fields[i+1:]
 		// if there is anything after `to` field
 		if len(options) > 0 {
 			// check for status code
-			if rule.Status, err = strconv.Atoi(options[0]); err != nil {
+			if rule.Status, err = isInteger(options[0]); err != nil {
 				// not a number, could be [status code][!]
-				if rule.Status, rule.Force, err = parseStatus(options[0]); err != nil {
+				if rule.Status, rule.Force, err = isStatusCode(options[0]); err != nil {
 					// not [status][!], could be key/pair
-					if !strings.ContainsAny(options[0], "=") {
+					if !isKeyPair(options[0]) {
 						return nil, fmt.Errorf("got: %s, was expecting format %s", options[0], format)
 					}
 					rule.Status = 301
@@ -174,7 +168,7 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 
 			// parse for country and/or language options, error out if anything else was found.
 			if rule.Country, rule.Language, err = parseOptions(options); err != nil {
-				return nil, fmt.Errorf("%s", err)
+				return nil, err
 			}
 		}
 		rules = append(rules, rule)
@@ -186,6 +180,38 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 // ParseString parses the given string.
 func ParseString(s string) ([]Rule, error) {
 	return Parse(strings.NewReader(s))
+}
+
+// isPath checks for mal-formed path, then returns it
+func isPath(token string) (string, error) {
+	if _, err := isInteger(token); err == nil {
+		return "", fmt.Errorf("Numbers not allowed. Got: %s, was expecting format %s", token, format)
+	}
+	if strings.ContainsAny(token, "=") {
+		return "", fmt.Errorf("`=` not allowed. Got: %s, was expecting format %s", token, format)
+	}
+	if strings.HasSuffix(token, "!") {
+		return "", fmt.Errorf("`!` not allowed. Got: %s, was expecting format %s", token, format)
+	}
+	if (!strings.HasPrefix(token, "/") || !strings.HasPrefix(token, "http://") || !strings.HasPrefix(token, "https://")) == false {
+		return "", fmt.Errorf("Got: %s, path must start with `/`, `http://`, or `https://`", token)
+	}
+	return token, nil
+}
+
+// isInteger returns results from strconv.Atoi(string)
+func isInteger(token string) (int, error) {
+	return strconv.Atoi(token)
+}
+
+// isStatusCode returns results from parseStatus(string)
+func isStatusCode(token string) (int, bool, error) {
+	return parseStatus(token)
+}
+
+// isKeyPair returns true if `=` is found in token
+func isKeyPair(token string) bool {
+	return strings.ContainsAny(token, "=")
 }
 
 // parseParams returns parsed param key/value pairs.
@@ -219,7 +245,6 @@ func parseStatus(s string) (code int, force bool, err error) {
 func parseOptions(options []string) (Country []string, Language []string, err error) {
 	// parse for country and or language options, skips if empty
 	for _, token := range options {
-		fmt.Println(token)
 		// if we find something other than a key/pair past the `status code` place, error out
 		if !strings.ContainsAny(token, "=") {
 			err = fmt.Errorf("got: %s, was expecting format %s", token, format)
