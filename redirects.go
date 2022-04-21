@@ -129,8 +129,10 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 		var implyStatusCode bool
 
 		// grab all parameters
-		for i = 1; strings.ContainsAny(fields[i], "="); i++ {
-			parameters = append(parameters, fields[i])
+		for i = 1; i < len(fields); i++ {
+			if strings.ContainsAny(fields[i], "=") {
+				parameters = append(parameters, fields[i])
+			}
 		}
 
 		// if there were any paramters, add them to the rules
@@ -139,7 +141,8 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 		}
 
 		// if `to` field is empty, else validate `to` path
-		if field := fields[i:]; field == nil {
+		if field := fields[i:]; len(field) == 0 {
+			fmt.Println("The correct error statement is occuring...")
 			return nil, fmt.Errorf("Missing `to` field %s", format)
 		} else {
 			if rule.To, err = isPath(field[0]); err != nil {
