@@ -6,10 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"strconv"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // Params is a map of key/value pairs.
@@ -120,62 +117,75 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 			return nil, fmt.Errorf("missing destination path: %q", line)
 		}
 
+		list := List{}
+		for index, token := range fields {
+			list.Insert(token, index)
+		}
+		list.Reverse()
+		// PrintListFrom(link.head)
+
 		// src and dst
 		rule := Rule{
-			From:   fields[0],
 			Status: 301,
 		}
-
-		// This will continue until all parameters have been grabbed
 		var parameters []string
-		var i int
-		for i = 1; strings.ContainsAny(fields[i], "="); i++ {
-			parameters = append(parameters, fields[i])
+		node := list.head
+
+		// Assign `from` path
+		if node != nil {
+			if rule.From, err = isPath(node.token); err != nil {
+				return nil, err
+			}
+			node = node.next
+		} else {
+			return nil, fmt.Errorf("Missing `from` field %s", format)
 		}
 
+		// assign parameters
+		for node != nil {
+			if !strings.ContainsAny(node.token, "=") {
+				break
+			}
+			parameters = append(parameters, node.token)
+			node = node.next
+		}
 		// if there were any paramters, add them to the rules
 		if len(parameters) != 0 {
 			rule.Params = parseParams(parameters)
 		}
 
-		// if status code or parameters are in `to` place. error out.
-		// else get `to` field
-		if _, err := strconv.Atoi(fields[i]); err != nil {
-			if strings.HasSuffix(fields[i], "!") {
-				return nil, fmt.Errorf("got: %s, was expecting format %s", fields[i], format)
+		// Assign `to` path
+		if node != nil {
+			if rule.To, err = isPath(node.token); err != nil {
+				return nil, err
 			}
-			if strings.ContainsAny(fields[i], "=") {
-				return nil, fmt.Errorf("got: %s, was expecting format %s", fields[i], format)
-			}
-			rule.To = fields[i]
+			node = node.next
+		} else {
+			return nil, fmt.Errorf("Missing `to` field %s", format)
 		}
 
-		// if there is no status code. then check for anything after
-		if i+1 < len(fields) {
-			i += 1
-			if strings.ContainsAny(fields[i], "=") {
-				// imply that status code is 301
-				// grab the country and or language
-
-				// if there were any paramters, add them to the rules
-				if len(parameters) != 0 {
-					rule.Params = parseParams(parameters)
+		// assign status code
+		if node != nil {
+			if rule.Status, err = isInteger(node.token); err != nil {
+				// not a number, could be [status code][!]
+				if rule.Status, rule.Force, err = isStatusCode(node.token); err != nil {
+					// not [status][!], could be key/pair
+					// parse for country and/or language options, error out if anything else was found.
+					rule.Status = 301
+					if rule.Country, rule.Language, err = parseOptions(node); err != nil {
+						return nil, err
+					}
+					rules = append(rules, rule)
+					err = s.Err()
+					return
 				}
-				// return nil, fmt.Errorf("got: %s, was expecting format %s", options[0], format)
 			}
+			node = node.next
+		}
 
-			if code, err := strconv.Atoi(fields[i]); err != nil {
-				// not a number, or could be [status code][!]
-				code, force, err := parseStatus(fields[i])
-				if err != nil {
-					return nil, errors.Wrapf(err, "got: %s, was expecting format %s", fields[i], format)
-				}
-				// it did have a '!', therefore is the status code
-				rule.Status = code
-				rule.Force = force
-			} else {
-				rule.Status = code
-			}
+		// assign country and language
+		if rule.Country, rule.Language, err = parseOptions(node); err != nil {
+			return nil, err
 		}
 		rules = append(rules, rule)
 	}
@@ -186,36 +196,4 @@ func Parse(r io.Reader) (rules []Rule, err error) {
 // ParseString parses the given string.
 func ParseString(s string) ([]Rule, error) {
 	return Parse(strings.NewReader(s))
-}
-
-// parseParams returns parsed param key/value pairs.
-func parseParams(pairs []string) Params {
-	m := make(Params)
-
-	for _, p := range pairs {
-		parts := strings.Split(p, "=")
-		if len(parts) > 1 {
-			m[parts[0]] = parts[1]
-		} else {
-			m[parts[0]] = true
-		}
-	}
-
-	return m
-}
-
-// parseStatus returns the status code and force when "!" suffix is present.
-func parseStatus(s string) (code int, force bool, err error) {
-	if strings.HasSuffix(s, "!") {
-		force = true
-		s = strings.Replace(s, "!", "", -1)
-	}
-
-	code, err = strconv.Atoi(s)
-	return
-}
-
-// parseCountry returns a slice of countries
-func parseCountry(s string) []string {
-	return strings.Split(s, ",")[1:] //split comma separated list into slice
 }
